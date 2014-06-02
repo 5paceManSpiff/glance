@@ -1,0 +1,19 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="50dp"
+    android:layout_gravity="center_horizontal"
+    android:background="@color/color_3"
+    android:id="@+id/ab">
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ab_back"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:contentDescription="@string/overview_back"
+        android:background="@drawable/ic_action_previous_item"
+        android:layout_marginLeft="5dp"
+        android:onClick="backListener"/>
+</RelativeLayout>
