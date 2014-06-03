@@ -14,19 +14,11 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.entity.StringEntity;
 
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
 
 
 public class LoginActivity extends Activity {
@@ -74,23 +66,19 @@ public class LoginActivity extends Activity {
     }
 
     public void loginListener(View v) {
-        new TestRequest().execute();
         SharedPreferences prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putBoolean(Constants.PREF_LOGGED_IN, true);
         editor.putString(Constants.PREF_USERNAME, username.getText().toString());
-        editor.putString(Constants.PREF_PASSWORD, hash(password.getText().toString()));
+        editor.putString(Constants.PREF_PASSWORD, hash(password.getText().toString(), Constants.SALT));
         editor.commit();
-        Intent i = new Intent(getApplicationContext(), OverviewActivity.class);
-        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(i);
-        overridePendingTransition(0, android.R.anim.fade_in);
+        new LoginRequest().execute();
     }
 
-    private String hash(String s) {
+    private String hash(String s, String salt) {
         try {
             MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
-            digest.update(s.getBytes());
+            String fin = s + salt;
+            digest.update(fin.getBytes());
             byte messageDigest[] = digest.digest();
 
             StringBuffer hexString = new StringBuffer();
@@ -106,26 +94,51 @@ public class LoginActivity extends Activity {
         return null;
     }
 
-    private class TestRequest extends AsyncTask<Void, Void, Void> {
+    private class LoginRequest extends AsyncTask<Void, Void, HttpResponse> {
 
         @Override
-        protected Void doInBackground(Void... voids) {
-            HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost("http://aaronlandis.io:8000");
+        protected HttpResponse doInBackground(Void... voids) {
+            String name = prefs.getString(Constants.PREF_USERNAME, "");
+            String pass = prefs.getString(Constants.PREF_PASSWORD, "");
 
             try {
-                List<NameValuePair> pairs = new ArrayList<NameValuePair>(1);
-                pairs.add(new BasicNameValuePair("username", "testname"));
-                post.setEntity(new UrlEncodedFormEntity(pairs));
-
-                HttpResponse response = client.execute(post);
-            } catch (ClientProtocolException e) {
-                // TODO login protocol exception
+                StringEntity input = new StringEntity("{\"username\":\"" + name + "\", \"password\":\"" + pass + "\"}");
+                input.setContentType("application/json");
+                HttpResponse response = Request.make("http://aaronlandis.io:8000/login", input);
+                return response;
             } catch (IOException e) {
-                // TODO login io exception
+                // TODO input io exception
             }
 
             return null;
+        }
+
+        @Override
+        protected void onPostExecute(HttpResponse response) {
+            int code;
+            if (response == null) {
+                Toast.makeText(getApplicationContext(), "could not connect", Toast.LENGTH_SHORT).show();
+                return;
+            } else {
+                code = response.getStatusLine().getStatusCode();
+            }
+
+            switch (code) {
+                case 200:
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean(Constants.PREF_LOGGED_IN, true);
+                    editor.commit();
+                    Intent i = new Intent(getApplicationContext(), OverviewActivity.class);
+                    i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(i);
+                    overridePendingTransition(0, android.R.anim.fade_in);
+                    Log.i(TAG, "success");
+                    break;
+                case 400:
+                    Toast.makeText(getApplicationContext(), "login failed", Toast.LENGTH_SHORT).show();
+                    Log.i(TAG, "failed");
+                    break;
+            }
         }
     }
 
