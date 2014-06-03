@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,6 +18,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.apache.http.HttpResponse;
+import org.apache.http.entity.StringEntity;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,12 +31,14 @@ public class OverviewActivity extends Activity {
     private ImageButton back;
     private ListView listView;
     private ArrayList<Overview> data;
+    private SharedPreferences prefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.overview);
 
+        prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
         data = new ArrayList<Overview>();
 
         setupViews();
@@ -98,6 +105,37 @@ public class OverviewActivity extends Activity {
             count.setText(String.valueOf(data.get(position).messageCount));
 
             return convertView;
+        }
+    }
+
+    private class FriendRequest extends AsyncTask<Void, Void, HttpResponse> {
+
+        private String friend;
+
+        public FriendRequest(String s) {
+            friend = s;
+        }
+
+        @Override
+        protected HttpResponse doInBackground(Void... voids) {
+            String name = prefs.getString(Constants.PREF_USERNAME, "");
+            String pass = prefs.getString(Constants.PREF_PASSWORD, "");
+
+            try {
+                StringEntity input = new StringEntity("{\"username\":\"" + name + "\", \"password\":\"" + pass + "\", \"friend\":\"" + friend + "\"}");
+                input.setContentType("application/json");
+                HttpResponse response = Request.make("http://aaronlandis.io:8000/friend/add", input);
+                return response;
+            } catch (IOException e) {
+                // TODO input io exception
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(HttpResponse response) {
+
         }
     }
 }
