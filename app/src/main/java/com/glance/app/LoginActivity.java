@@ -3,6 +3,7 @@ package com.glance.app;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -12,8 +13,20 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class LoginActivity extends Activity {
@@ -61,6 +74,7 @@ public class LoginActivity extends Activity {
     }
 
     public void loginListener(View v) {
+        new TestRequest().execute();
         SharedPreferences prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean(Constants.PREF_LOGGED_IN, true);
@@ -90,6 +104,29 @@ public class LoginActivity extends Activity {
         }
 
         return null;
+    }
+
+    private class TestRequest extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            HttpClient client = new DefaultHttpClient();
+            HttpPost post = new HttpPost("http://aaronlandis.io:8000");
+
+            try {
+                List<NameValuePair> pairs = new ArrayList<NameValuePair>(1);
+                pairs.add(new BasicNameValuePair("username", "testname"));
+                post.setEntity(new UrlEncodedFormEntity(pairs));
+
+                HttpResponse response = client.execute(post);
+            } catch (ClientProtocolException e) {
+                // TODO login protocol exception
+            } catch (IOException e) {
+                // TODO login io exception
+            }
+
+            return null;
+        }
     }
 
     private class LoginTextWatcher implements TextWatcher {
