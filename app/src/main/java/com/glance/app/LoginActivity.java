@@ -28,10 +28,10 @@ public class LoginActivity extends Activity {
     public static final String LOGIN_WAIT = "...";
     public static final String LOGIN_GO = "login";
 
-    public SharedPreferences prefs;
-    public EditText username;
-    public EditText password;
-    public Button login;
+    private SharedPreferences prefs;
+    private EditText username;
+    private EditText password;
+    private Button login;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
