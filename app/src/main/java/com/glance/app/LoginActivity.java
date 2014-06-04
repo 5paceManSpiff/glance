@@ -97,6 +97,12 @@ public class LoginActivity extends Activity {
     private class LoginRequest extends AsyncTask<Void, Void, HttpResponse> {
 
         @Override
+        protected void onPreExecute() {
+            login.setClickable(false);
+            login.setText(LOGIN_WAIT);
+        }
+
+        @Override
         protected HttpResponse doInBackground(Void... voids) {
             String name = prefs.getString(Constants.PREF_USERNAME, "");
             String pass = prefs.getString(Constants.PREF_PASSWORD, "");
@@ -118,6 +124,8 @@ public class LoginActivity extends Activity {
             int code;
             if (response == null) {
                 Toast.makeText(getApplicationContext(), "could not connect", Toast.LENGTH_SHORT).show();
+                login.setClickable(true);
+                login.setText(LOGIN_GO);
                 return;
             } else {
                 code = response.getStatusLine().getStatusCode();
@@ -129,16 +137,17 @@ public class LoginActivity extends Activity {
                     editor.putBoolean(Constants.PREF_LOGGED_IN, true);
                     editor.commit();
                     Intent i = new Intent(getApplicationContext(), OverviewActivity.class);
-                    i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(i);
-                    overridePendingTransition(0, android.R.anim.fade_in);
-                    Log.i(TAG, "success");
+                    login.setClickable(true);
                     break;
                 case 400:
                     Toast.makeText(getApplicationContext(), "login failed", Toast.LENGTH_SHORT).show();
                     Log.i(TAG, "failed");
                     break;
             }
+
+            login.setClickable(true);
+            login.setText(LOGIN_GO);
         }
     }
 

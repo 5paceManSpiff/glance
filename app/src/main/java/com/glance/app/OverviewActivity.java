@@ -1,7 +1,9 @@
 package com.glance.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -12,7 +14,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -20,6 +24,8 @@ import android.widget.Toast;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.entity.StringEntity;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,10 +34,13 @@ import java.util.List;
 
 public class OverviewActivity extends Activity {
 
-    private ImageButton back;
+    public static final String TAG = "Overview";
+
     private ListView listView;
-    private ArrayList<Overview> data;
     private SharedPreferences prefs;
+    private OverviewAdapter adapter;
+    private TextView name;
+    private ImageButton refresh;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,44 +48,67 @@ public class OverviewActivity extends Activity {
         setContentView(R.layout.overview);
 
         prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
-        data = new ArrayList<Overview>();
 
         setupViews();
+
+        new GetFriendsRequest(false).execute();
+    }
+
+    @Override
+    public void onBackPressed() {
+        logout();
+        return;
     }
 
     private void setupViews() {
-        back = (ImageButton) findViewById(R.id.ab_back);
         listView = (ListView) findViewById(R.id.overview_list);
+        name = (TextView) findViewById(R.id.ab_name);
+        refresh = (ImageButton) findViewById(R.id.ab_refresh);
 
-        OverviewAdapter adapter = new OverviewAdapter(this, R.layout.overview_row);
+        name.setText(prefs.getString(Constants.PREF_USERNAME, ""));
+
+        adapter = new OverviewAdapter(this, R.layout.overview_row);
         listView.setAdapter(adapter);
-
-        for (int i = 0; i < 25; i++) {
-            data.add(i, new Overview("Joe Shmoe", i));
-        }
-
-        adapter.addAll(data);
     }
 
     public void backListener(View v) {
+        logout();
+    }
+
+    private void logout() {
         Toast.makeText(getApplicationContext(), "logging out", Toast.LENGTH_SHORT).show();
         SharedPreferences prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean(Constants.PREF_LOGGED_IN, false);
         editor.commit();
         Intent i = new Intent(getApplicationContext(), LoginActivity.class);
-        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(i);
-        overridePendingTransition(0, android.R.anim.fade_out);
+    }
+
+    public void refreshListener(View v) {
+        new GetFriendsRequest().execute();
     }
 
     public class Overview {
+
+        public static final int NORMAL = 0;
+        public static final int ADD = 1;
+        public static final int REFRESHING = 2;
+
+        public int type;
         public String sender;
         public int messageCount;
 
         public Overview(String s, int m) {
             sender = s;
             messageCount = m;
+            type = NORMAL;
+        }
+
+        public Overview(int t) {
+            sender = "";
+            messageCount = 0;
+            type = t;
         }
     }
 
@@ -89,6 +121,46 @@ public class OverviewActivity extends Activity {
             super(c, r);
             context = c;
             resource = r;
+
+            add(new Overview(Overview.ADD));
+            listView.setOnItemClickListener(new ClickCallback());
+        }
+
+        public void notifyDataSetChanged(int t) {
+            super.notifyDataSetChanged();
+            insert(new Overview(t), 0);
+        }
+
+        private class ClickCallback implements AdapterView.OnItemClickListener {
+
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                if (i == 0) {
+                    AlertDialog.Builder alert = new AlertDialog.Builder(getContext());
+
+                    alert.setTitle("Add Friend");
+
+                    final EditText input = new EditText(getContext());
+                    input.setHint("username");
+                    alert.setView(input);
+
+                    alert.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            new AddFriendRequest(input.getText().toString()).execute();
+                        }
+                    });
+
+                    alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+
+                        }
+                    });
+
+                    alert.show();
+                }
+            }
         }
 
         @Override
@@ -100,19 +172,112 @@ public class OverviewActivity extends Activity {
 
             TextView sender = (TextView) convertView.findViewById(R.id.overview_row_sender);
             TextView count = (TextView) convertView.findViewById(R.id.overview_row_count);
+            TextView msg = (TextView) convertView.findViewById(R.id.overview_row_msg);
+            sender.setText(getItem(position).sender);
+            count.setText(String.valueOf(getItem(position).messageCount));
 
-            sender.setText(data.get(position).sender);
-            count.setText(String.valueOf(data.get(position).messageCount));
+            switch (getItem(position).type) {
+                case Overview.ADD:
+                case Overview.REFRESHING:
+                    sender.setVisibility(View.INVISIBLE);
+                    count.setVisibility(View.INVISIBLE);
+                    msg.setVisibility(View.VISIBLE);
+                    msg.setText((getItem(position).type == Overview.ADD) ? "+" : "refreshing");
+                    break;
+                case Overview.NORMAL:
+                    sender.setVisibility(View.VISIBLE);
+                    count.setVisibility(View.VISIBLE);
+                    msg.setVisibility(View.INVISIBLE);
+                    break;
+            }
+
+            count.setVisibility(View.INVISIBLE);
+            // TODO fix message count data
 
             return convertView;
         }
     }
 
-    private class FriendRequest extends AsyncTask<Void, Void, HttpResponse> {
+    private class GetFriendsRequest extends AsyncTask<Void, Void, HttpResponse> {
+
+        private boolean display;
+
+        public GetFriendsRequest() {
+            display = true;
+        }
+
+        public GetFriendsRequest(boolean d) {
+            display = d;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            refresh.setClickable(false);
+            adapter.clear();
+            if (display) adapter.notifyDataSetChanged(Overview.REFRESHING);
+            else adapter.notifyDataSetChanged();
+        }
+
+        @Override
+        protected HttpResponse doInBackground(Void... voids) {
+            String name = prefs.getString(Constants.PREF_USERNAME, "");
+            String pass = prefs.getString(Constants.PREF_PASSWORD, "");
+
+            try {
+                StringEntity input = new StringEntity("{\"username\":\"" + name + "\", \"password\":\"" + pass + "\"}");
+                input.setContentType("application/json");
+                HttpResponse response = Request.make("http://aaronlandis.io:8000/getfriends", input);
+                return response;
+            } catch (IOException e) {
+                // TODO input io exception
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(HttpResponse response) {
+            int code;
+            if (response == null) {
+                Toast.makeText(getApplicationContext(), "could not connect", Toast.LENGTH_SHORT).show();
+                refresh.setClickable(true);
+                return;
+            } else {
+                code = response.getStatusLine().getStatusCode();
+            }
+
+            switch (code) {
+                case 200:
+                    String raw = Request.readResponse(response);
+                    try {
+                        adapter.clear();
+                        JSONArray array = new JSONArray(raw);
+                        for (int i = 0; i < array.length(); i++) {
+                            String friend = array.getString(i);
+                            adapter.add(new Overview(friend, 0));
+                            // TODO implement accurate message count
+                        }
+                        adapter.notifyDataSetChanged(Overview.ADD);
+                        Log.i(TAG, "updated friends list");
+                    } catch (Exception e) {
+                        // TODO manage json exception
+                        Log.e(TAG, e.getMessage());
+                    }
+                    break;
+                case 400:
+                    Log.i(TAG, "error getting friends");
+                    break;
+            }
+
+            refresh.setClickable(true);
+        }
+    }
+
+    private class AddFriendRequest extends AsyncTask<Void, Void, HttpResponse> {
 
         private String friend;
 
-        public FriendRequest(String s) {
+        public AddFriendRequest(String s) {
             friend = s;
         }
 
@@ -124,7 +289,7 @@ public class OverviewActivity extends Activity {
             try {
                 StringEntity input = new StringEntity("{\"username\":\"" + name + "\", \"password\":\"" + pass + "\", \"friend\":\"" + friend + "\"}");
                 input.setContentType("application/json");
-                HttpResponse response = Request.make("http://aaronlandis.io:8000/friend/add", input);
+                HttpResponse response = Request.make("http://aaronlandis.io:8000/addfriend", input);
                 return response;
             } catch (IOException e) {
                 // TODO input io exception
@@ -135,7 +300,24 @@ public class OverviewActivity extends Activity {
 
         @Override
         protected void onPostExecute(HttpResponse response) {
+            int code;
+            if (response == null) {
+                Toast.makeText(getApplicationContext(), "could not connect", Toast.LENGTH_SHORT).show();
+                return;
+            } else {
+                code = response.getStatusLine().getStatusCode();
+            }
 
+            switch (code) {
+                case 200:
+                    Log.i(TAG, "friend added successfully");
+                    new GetFriendsRequest().execute();
+                    break;
+                case 400:
+                    Toast.makeText(getApplicationContext(), "error adding friend", Toast.LENGTH_SHORT).show();
+                    Log.i(TAG, "friend add failed");
+                    break;
+            }
         }
     }
 }

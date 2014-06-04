@@ -9,11 +9,32 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/ab_back"
-        android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
         android:contentDescription="@string/overview_back"
         android:background="@drawable/ic_action_previous_item"
         android:layout_marginLeft="5dp"
         android:onClick="backListener"/>
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ab_refresh"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:contentDescription="@string/overview_back"
+        android:background="@drawable/ic_action_refresh"
+        android:layout_marginRight="5dp"
+        android:onClick="refreshListener"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Joe Shmoe"
+        android:textColor="@color/white"
+        android:textSize="22sp"
+        android:id="@+id/ab_name"
+        android:layout_toRightOf="@+id/ab_back"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="15dp"/>
 </RelativeLayout>
