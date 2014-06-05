@@ -41,11 +41,13 @@ public class OverviewActivity extends Activity {
     private OverviewAdapter adapter;
     private TextView name;
     private ImageButton refresh;
+    private Context context;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.overview);
+        context = this;
 
         prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
 
@@ -76,12 +78,12 @@ public class OverviewActivity extends Activity {
     }
 
     private void logout() {
-        Toast.makeText(getApplicationContext(), "logging out", Toast.LENGTH_SHORT).show();
+        Toast.makeText(context, "logging out", Toast.LENGTH_SHORT).show();
         SharedPreferences prefs = getSharedPreferences(Constants.PREFS, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean(Constants.PREF_LOGGED_IN, false);
         editor.commit();
-        Intent i = new Intent(getApplicationContext(), LoginActivity.class);
+        Intent i = new Intent(context, LoginActivity.class);
         startActivity(i);
     }
 
@@ -112,6 +114,42 @@ public class OverviewActivity extends Activity {
         }
     }
 
+    private class ClickCallback implements AdapterView.OnItemClickListener {
+
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            if (i == 0) {
+                AlertDialog.Builder alert = new AlertDialog.Builder(context);
+
+                alert.setTitle("Add Friend");
+
+                final EditText input = new EditText(context);
+                input.setHint("username");
+                alert.setView(input);
+
+                alert.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        new AddFriendRequest(input.getText().toString()).execute();
+                    }
+                });
+
+                alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                });
+
+                alert.show();
+            } else {
+                Intent intent = new Intent(context, MessageActivity.class);
+                intent.putExtra("friend", adapter.getItem(i).sender);
+                startActivity(intent);
+            }
+        }
+    }
+
     private class OverviewAdapter extends ArrayAdapter<Overview> {
 
         private Context context;
@@ -129,38 +167,6 @@ public class OverviewActivity extends Activity {
         public void notifyDataSetChanged(int t) {
             super.notifyDataSetChanged();
             insert(new Overview(t), 0);
-        }
-
-        private class ClickCallback implements AdapterView.OnItemClickListener {
-
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                if (i == 0) {
-                    AlertDialog.Builder alert = new AlertDialog.Builder(getContext());
-
-                    alert.setTitle("Add Friend");
-
-                    final EditText input = new EditText(getContext());
-                    input.setHint("username");
-                    alert.setView(input);
-
-                    alert.setPositiveButton("Add", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            new AddFriendRequest(input.getText().toString()).execute();
-                        }
-                    });
-
-                    alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-
-                        }
-                    });
-
-                    alert.show();
-                }
-            }
         }
 
         @Override
@@ -302,7 +308,7 @@ public class OverviewActivity extends Activity {
         protected void onPostExecute(HttpResponse response) {
             int code;
             if (response == null) {
-                Toast.makeText(getApplicationContext(), "could not connect", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "could not connect", Toast.LENGTH_SHORT).show();
                 return;
             } else {
                 code = response.getStatusLine().getStatusCode();
@@ -314,7 +320,7 @@ public class OverviewActivity extends Activity {
                     new GetFriendsRequest().execute();
                     break;
                 case 400:
-                    Toast.makeText(getApplicationContext(), "error adding friend", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "error adding friend", Toast.LENGTH_SHORT).show();
                     Log.i(TAG, "friend add failed");
                     break;
             }

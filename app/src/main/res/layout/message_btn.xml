@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Button
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/button_message"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:textColor="@color/white"
+    android:id="@+id/message_btn"
+    android:text="lol"
+    android:padding="0dp"
+    android:layout_margin="0dp"/>

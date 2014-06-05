@@ -8,5 +8,8 @@
     <string name="title_activity_overview">Messages</string>
     <string name="overview_back">back</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_message">MessageActivity</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
 
 </resources>
